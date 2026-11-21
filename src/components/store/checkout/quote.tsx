@@ -127,7 +127,7 @@ export function PromoCodeInput({ quote }: { quote: CartQuote | null }) {
           {promoCodes.map((code) => {
             const outcome = applied.find((a) => a.code === code);
             return (
-              <motion.li key={code} layout initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: justApplied === code ? [1, 1.12, 1] : 1 }} exit={{ opacity: 0, scale: 0.6 }} transition={{ type: "spring", stiffness: 600, damping: 22 }}>
+              <motion.li key={code} layout initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: justApplied === code ? [1, 1.12, 1] : 1 }} exit={{ opacity: 0, scale: 0.6 }} transition={justApplied === code ? { duration: 0.35, ease: "easeOut" } : { type: "spring", stiffness: 600, damping: 22 }}>
                 <span className="inline-flex min-h-[2.25rem] pointer-coarse:min-h-tap items-center gap-2 rounded-pill border border-price/50 bg-price/10 pl-3 text-sm text-price">
                   <Check className="size-3.5" aria-hidden />
                   <span className="font-mono tracking-wider">{code}</span>
