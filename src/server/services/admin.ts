@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, inArray, lt, lte, ne, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, gte, inArray, lt, lte, ne, notInArray, sql } from "drizzle-orm";
 import type { ProductData } from "@/lib/validations/admin";
 import { getDb, schema } from "../db";
 import { writeAudit } from "./audit";
@@ -8,10 +8,21 @@ import { writeAudit } from "./audit";
 type Actor = { id: string; email: string };
 const DAY = 86_400_000;
 
-export function dashboardKpis() {
+const MANILA_OFFSET_MS = 8 * 3_600_000;
+const manilaDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" });
+export const DASHBOARD_RANGES = [7, 30, 90] as const;
+export type DashboardRange = (typeof DASHBOARD_RANGES)[number];
+
+/**
+ * Headline numbers for the last `days` Manila calendar days (today included) against the
+ * `days` before that. Revenue is net of refunds; cancelled/unpaid orders never count.
+ */
+export function dashboardKpis(days: DashboardRange = 30) {
   const db = getDb();
-  const since = new Date(Date.now() - 30 * DAY);
-  const prev = new Date(Date.now() - 60 * DAY);
+  const now = Date.now();
+  const todayStart = Math.floor((now + MANILA_OFFSET_MS) / DAY) * DAY - MANILA_OFFSET_MS;
+  const since = new Date(todayStart - (days - 1) * DAY);
+  const prev = new Date(since.getTime() - days * DAY);
   const revenueStatuses = ["paid", "packed", "shipped", "delivered"] as const;
 
   const window = (from: Date, to: Date) =>
@@ -25,7 +36,7 @@ export function dashboardKpis() {
       .where(and(inArray(schema.orders.status, revenueStatuses), gte(schema.orders.createdAt, from), lt(schema.orders.createdAt, to)))
       .get() ?? { revenue: 0, orders: 0, customers: 0 };
 
-  const current = window(since, new Date(Date.now() + DAY));
+  const current = window(since, new Date(now + DAY));
   const previous = window(prev, since);
   const lowStock = db
     .select({ n: sql<number>`count(*)` })
@@ -39,29 +50,59 @@ export function dashboardKpis() {
     .get();
   const returns = db.select({ n: sql<number>`count(*)` }).from(schema.orders).where(eq(schema.orders.returnStatus, "requested")).get();
 
-  const daily = db
+  const rows = db
     .select({
       day: sql<string>`strftime('%Y-%m-%d', ${schema.orders.createdAt} / 1000, 'unixepoch', '+8 hours')`,
       revenue: sql<number>`sum(${schema.orders.total} - ${schema.orders.refundedAmount})`,
+      orders: sql<number>`count(*)`,
     })
     .from(schema.orders)
     .where(and(inArray(schema.orders.status, revenueStatuses), gte(schema.orders.createdAt, since)))
     .groupBy(sql`1`)
-    .orderBy(sql`1`)
     .all();
+  const byDay = new Map(rows.map((r) => [r.day, r]));
+  // Every calendar day in the window, zero-filled, so the chart and the totals always agree.
+  const daily = Array.from({ length: days }, (_, i) => {
+    const day = manilaDay.format(new Date(since.getTime() + i * DAY + MANILA_OFFSET_MS / 2));
+    return { day, revenue: byDay.get(day)?.revenue ?? 0, orders: byDay.get(day)?.orders ?? 0 };
+  });
 
+  const delta = (cur: number, before: number) => (before ? (cur - before) / before : null);
   return {
+    days,
     revenue: current.revenue,
-    revenueDelta: previous.revenue ? (current.revenue - previous.revenue) / previous.revenue : null,
+    revenueDelta: delta(current.revenue, previous.revenue),
     orders: current.orders,
-    ordersDelta: previous.orders ? (current.orders - previous.orders) / previous.orders : null,
+    ordersDelta: delta(current.orders, previous.orders),
     activeCustomers: current.customers,
+    customersDelta: delta(current.customers, previous.customers),
     aov: current.orders ? Math.round(current.revenue / current.orders) : 0,
+    aovDelta: delta(current.orders ? current.revenue / current.orders : 0, previous.orders ? previous.revenue / previous.orders : 0),
     lowStock: lowStock?.n ?? 0,
     openOrders: pending?.n ?? 0,
     returnRequests: returns?.n ?? 0,
     daily,
   };
+}
+
+/** Orders per fulfilment stage that still need a human. */
+export function fulfilmentQueue() {
+  const rows = getDb()
+    .select({ status: schema.orders.status, n: sql<number>`count(*)`, oldest: sql<number>`min(${schema.orders.createdAt})` })
+    .from(schema.orders)
+    .where(inArray(schema.orders.status, ["pending", "paid", "packed", "shipped"]))
+    .groupBy(schema.orders.status)
+    .all();
+  return Object.fromEntries(rows.map((r) => [r.status, { n: r.n, oldest: r.oldest }])) as Partial<Record<"pending" | "paid" | "packed" | "shipped", { n: number; oldest: number }>>;
+}
+
+/** Badge counts for the admin navigation. */
+export function adminNavCounts() {
+  const db = getDb();
+  const open = db.select({ n: sql<number>`count(*)` }).from(schema.orders).where(inArray(schema.orders.status, ["paid", "packed"])).get();
+  const returns = db.select({ n: sql<number>`count(*)` }).from(schema.orders).where(eq(schema.orders.returnStatus, "requested")).get();
+  const low = db.select({ n: sql<number>`count(*)` }).from(schema.productVariants).where(lte(schema.productVariants.stock, schema.productVariants.reorderThreshold)).get();
+  return { orders: (open?.n ?? 0) + (returns?.n ?? 0), products: low?.n ?? 0 };
 }
 
 export function restockQueue(limit = 20) {
@@ -73,7 +114,7 @@ export function restockQueue(limit = 20) {
       threshold: schema.productVariants.reorderThreshold,
       productName: schema.products.name,
       productId: schema.products.id,
-      alerts: sql<number>`(select count(*) from restock_alerts ra where ra.variant_id = ${schema.productVariants.id} and ra.notified_at is null)`,
+      alerts: sql<number>`(select count(*) from restock_alerts ra where ra.variant_id = "product_variants"."id" and ra.notified_at is null)`,
     })
     .from(schema.productVariants)
     .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
@@ -83,11 +124,11 @@ export function restockQueue(limit = 20) {
     .all();
 }
 
-export function zeroResultSearches(limit = 6) {
+export function zeroResultSearches(limit = 6, days = 30) {
   return getDb()
     .select({ query: schema.searchQueries.query, n: sql<number>`count(*)`, last: sql<number>`max(${schema.searchQueries.createdAt})` })
     .from(schema.searchQueries)
-    .where(and(eq(schema.searchQueries.resultCount, 0), gte(schema.searchQueries.createdAt, new Date(Date.now() - 30 * DAY))))
+    .where(and(eq(schema.searchQueries.resultCount, 0), gte(schema.searchQueries.createdAt, new Date(Date.now() - days * DAY))))
     .groupBy(schema.searchQueries.query)
     .orderBy(desc(sql`count(*)`))
     .limit(limit)
@@ -336,7 +377,11 @@ export function applyCsvRows(actor: Actor, rows: { sku: string; price?: number |
 export function listAdminOrders(filters: { q?: string; status?: string } = {}) {
   const db = getDb();
   const rows = db
-    .select({ order: schema.orders, customer: schema.users.name })
+    .select({
+      order: schema.orders,
+      customer: schema.users.name,
+      items: sql<number>`(select coalesce(sum(oi.quantity), 0) from order_items oi where oi.order_id = "orders"."id")`,
+    })
     .from(schema.orders)
     .leftJoin(schema.users, eq(schema.users.id, schema.orders.userId))
     .orderBy(desc(schema.orders.createdAt))
@@ -348,17 +393,18 @@ export function listAdminOrders(filters: { q?: string; status?: string } = {}) {
     .filter((r) => !q || r.order.number.toLowerCase().includes(q) || r.order.email.toLowerCase().includes(q) || (r.customer ?? "").toLowerCase().includes(q));
 }
 
-export function listCustomers(q = "") {
+export function listCustomers(q = "", userId?: string) {
   const db = getDb();
   const rows = db
     .select({
       user: schema.users,
-      orders: sql<number>`(select count(*) from orders o where o.user_id = ${schema.users.id} and o.status not in ('cancelled'))`,
-      spend: sql<number>`(select coalesce(sum(o.total - o.refunded_amount), 0) from orders o where o.user_id = ${schema.users.id} and o.status in ('paid','packed','shipped','delivered','refunded'))`,
-      lastOrder: sql<number | null>`(select max(o.created_at) from orders o where o.user_id = ${schema.users.id})`,
+      orders: sql<number>`(select count(*) from orders o where o.user_id = "users"."id" and o.status not in ('cancelled'))`,
+      spend: sql<number>`(select coalesce(sum(o.total - o.refunded_amount), 0) from orders o where o.user_id = "users"."id" and o.status in ('paid','packed','shipped','delivered','refunded'))`,
+      paidOrders: sql<number>`(select count(*) from orders o where o.user_id = "users"."id" and o.status in ('paid','packed','shipped','delivered','refunded'))`,
+      lastOrder: sql<number | null>`(select max(o.created_at) from orders o where o.user_id = "users"."id")`,
     })
     .from(schema.users)
-    .where(eq(schema.users.role, "customer"))
+    .where(and(eq(schema.users.role, "customer"), userId ? eq(schema.users.id, userId) : undefined))
     .orderBy(desc(schema.users.createdAt))
     .all();
   const needle = q.trim().toLowerCase();
@@ -373,10 +419,53 @@ export function listCustomers(q = "") {
       notes: r.user.notes,
       createdAt: r.user.createdAt,
       orders: r.orders,
+      paidOrders: r.paidOrders,
       ltv: r.spend,
-      aov: r.orders ? Math.round(r.spend / r.orders) : 0,
-      lastOrder: r.lastOrder,
+      aov: r.paidOrders ? Math.round(r.spend / r.paidOrders) : 0,
+      lastOrder: r.lastOrder ? new Date(r.lastOrder) : null,
     }));
+}
+
+export type AdminCustomer = ReturnType<typeof listCustomers>[number];
+
+/** Everything the CRM profile shows: stats, addresses, order history, buying habits and staff changes. */
+export function getAdminCustomer(id: string) {
+  const db = getDb();
+  const customer = listCustomers("", id)[0];
+  if (!customer) return null;
+  const ownerKey = `u:${id}`;
+  const addresses = db.select().from(schema.addresses).where(eq(schema.addresses.userId, id)).orderBy(desc(schema.addresses.isDefault)).all();
+  const orders = listCustomerOrders(id, 25);
+  const categories = db
+    .select({ category: schema.products.category, units: sql<number>`sum(${schema.orderItems.quantity})`, spend: sql<number>`sum(${schema.orderItems.lineTotal})` })
+    .from(schema.orderItems)
+    .innerJoin(schema.orders, eq(schema.orders.id, schema.orderItems.orderId))
+    .innerJoin(schema.products, eq(schema.products.id, schema.orderItems.productId))
+    .where(and(eq(schema.orders.userId, id), inArray(schema.orders.status, ["paid", "packed", "shipped", "delivered"])))
+    .groupBy(schema.products.category)
+    .orderBy(desc(sql`sum(${schema.orderItems.lineTotal})`))
+    .all();
+  const cart = db
+    .select({ units: sql<number>`coalesce(sum(${schema.cartItems.quantity}), 0)`, value: sql<number>`coalesce(sum(${schema.cartItems.quantity} * coalesce(${schema.productVariants.priceOverride}, ${schema.products.basePrice})), 0)`, updatedAt: sql<number | null>`max(${schema.cartItems.updatedAt})` })
+    .from(schema.cartItems)
+    .innerJoin(schema.productVariants, eq(schema.productVariants.id, schema.cartItems.variantId))
+    .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+    .where(eq(schema.cartItems.ownerKey, ownerKey))
+    .get();
+  const wishlist = db.select({ n: sql<number>`count(*)` }).from(schema.wishlistItems).where(eq(schema.wishlistItems.ownerKey, ownerKey)).get()?.n ?? 0;
+  const reviews = db.select({ n: sql<number>`count(*)`, avg: sql<number | null>`round(avg(${schema.reviews.rating}), 1)` }).from(schema.reviews).where(eq(schema.reviews.userId, id)).get();
+  const refunds = orders.filter((o) => o.status === "refunded").length;
+  return {
+    customer,
+    addresses,
+    orders,
+    categories,
+    cart: { units: cart?.units ?? 0, value: cart?.value ?? 0, updatedAt: cart?.updatedAt ?? null },
+    wishlist,
+    reviews: { count: reviews?.n ?? 0, average: reviews?.avg ?? null },
+    refunds,
+    audit: listAudit({ entity: "user", entityId: customer.email, limit: 20 }),
+  };
 }
 
 export function updateCustomer(actor: Actor, userId: string, patch: { status?: "active" | "suspended"; notes?: string }): boolean {
@@ -401,12 +490,45 @@ export function listPromos() {
   return db
     .select({
       promo: schema.promoCodes,
-      revenue: sql<number>`(select coalesce(sum(o.total), 0) from promo_redemptions r join orders o on o.id = r.order_id where r.promo_id = ${schema.promoCodes.id})`,
-      discount: sql<number>`(select coalesce(sum(r.amount), 0) from promo_redemptions r where r.promo_id = ${schema.promoCodes.id})`,
+      // Paid orders only, net of refunds. An order can carry two codes, so its revenue is attributed to both.
+      orders: sql<number>`(select count(distinct r.order_id) from promo_redemptions r join orders o on o.id = r.order_id where r.promo_id = "promo_codes"."id" and o.status in ('paid','packed','shipped','delivered','refunded'))`,
+      revenue: sql<number>`(select coalesce(sum(o.total - o.refunded_amount), 0) from promo_redemptions r join orders o on o.id = r.order_id where r.promo_id = "promo_codes"."id" and o.status in ('paid','packed','shipped','delivered','refunded'))`,
+      discount: sql<number>`(select coalesce(sum(r.amount), 0) from promo_redemptions r join orders o on o.id = r.order_id where r.promo_id = "promo_codes"."id" and o.status in ('paid','packed','shipped','delivered','refunded'))`,
     })
     .from(schema.promoCodes)
     .orderBy(desc(schema.promoCodes.createdAt))
     .all();
+}
+
+/** Distinct paid orders that used at least one code, so two-code orders aren't counted twice. */
+export function promoTotals() {
+  const db = getDb();
+  const paid = ["paid", "packed", "shipped", "delivered", "refunded"] as const;
+  const withCode = db
+    .select({ orders: sql<number>`count(*)`, revenue: sql<number>`coalesce(sum(${schema.orders.total} - ${schema.orders.refundedAmount}), 0)` })
+    .from(schema.orders)
+    .where(and(inArray(schema.orders.status, paid), sql`exists (select 1 from promo_redemptions r where r.order_id = "orders"."id")`))
+    .get();
+  const discount = db
+    .select({ n: sql<number>`coalesce(sum(${schema.promoRedemptions.amount}), 0)` })
+    .from(schema.promoRedemptions)
+    .innerJoin(schema.orders, eq(schema.orders.id, schema.promoRedemptions.orderId))
+    .where(inArray(schema.orders.status, paid))
+    .get();
+  const allPaid = db.select({ n: sql<number>`count(*)` }).from(schema.orders).where(inArray(schema.orders.status, paid)).get();
+  return { orders: withCode?.orders ?? 0, revenue: withCode?.revenue ?? 0, discount: discount?.n ?? 0, paidOrders: allPaid?.n ?? 0 };
+}
+
+export function setPromoActive(actor: Actor, id: string, active: boolean): string {
+  return getDb().transaction((tx) => {
+    const before = tx.select().from(schema.promoCodes).where(eq(schema.promoCodes.id, id)).get();
+    if (!before) throw new AdminError("Promotion not found.");
+    if (before.active !== active) {
+      tx.update(schema.promoCodes).set({ active }).where(eq(schema.promoCodes.id, id)).run();
+      writeAudit({ actor, action: active ? "promo.resume" : "promo.pause", entityType: "promo", entityId: before.code, before: { active: before.active }, after: { active } }, tx);
+    }
+    return before.code;
+  });
 }
 
 export function upsertPromo(
@@ -443,13 +565,84 @@ export function upsertPromo(
   });
 }
 
-export function listAudit(limit = 200, entity = "") {
+export const AUDIT_ENTITIES = ["product", "variant", "order", "user", "promo", "media"] as const;
+
+export function auditEntityCounts(): Record<string, number> {
+  const rows = getDb().select({ entity: schema.auditLogs.entityType, n: sql<number>`count(*)` }).from(schema.auditLogs).groupBy(schema.auditLogs.entityType).all();
+  return Object.fromEntries(rows.map((r) => [r.entity, r.n]));
+}
+
+/** Keyset cursor: entries strictly older than (at, rowid), so equal timestamps never skip or repeat. */
+export type AuditCursor = { at: number; rowid: number };
+
+export function listAudit(opts: { limit?: number; entity?: string; entityId?: string; q?: string; cursor?: AuditCursor } = {}) {
   const db = getDb();
+  const needle = opts.q?.trim().replace(/[%_\\]/g, "");
+  const c = opts.cursor;
   return db
-    .select()
+    .select({ ...getTableColumns(schema.auditLogs), rowid: sql<number>`rowid` })
     .from(schema.auditLogs)
-    .where(entity ? eq(schema.auditLogs.entityType, entity) : undefined)
-    .orderBy(desc(schema.auditLogs.createdAt))
+    .where(
+      and(
+        opts.entity ? eq(schema.auditLogs.entityType, opts.entity) : undefined,
+        opts.entityId ? eq(schema.auditLogs.entityId, opts.entityId) : undefined,
+        c ? sql`(${schema.auditLogs.createdAt} < ${c.at} or (${schema.auditLogs.createdAt} = ${c.at} and rowid < ${c.rowid}))` : undefined,
+        needle
+          ? sql`(${schema.auditLogs.action} like ${`%${needle}%`} or ${schema.auditLogs.entityId} like ${`%${needle}%`} or ${schema.auditLogs.actorEmail} like ${`%${needle}%`})`
+          : undefined,
+      ),
+    )
+    .orderBy(desc(schema.auditLogs.createdAt), sql`rowid desc`)
+    .limit(Math.min(opts.limit ?? 100, 500))
+    .all();
+}
+
+export function getAdminProduct(id: string) {
+  const db = getDb();
+  const product = db.select().from(schema.products).where(eq(schema.products.id, id)).get();
+  if (!product) return null;
+  const variants = db.select().from(schema.productVariants).where(eq(schema.productVariants.productId, id)).all();
+  const sales = db
+    .select({ units: sql<number>`coalesce(sum(${schema.orderItems.quantity}), 0)`, revenue: sql<number>`coalesce(sum(${schema.orderItems.lineTotal}), 0)` })
+    .from(schema.orderItems)
+    .innerJoin(schema.orders, eq(schema.orders.id, schema.orderItems.orderId))
+    .where(and(eq(schema.orderItems.productId, id), notInArray(schema.orders.status, ["cancelled", "refunded"])))
+    .get() ?? { units: 0, revenue: 0 };
+  return { product, variants, sales, history: listAudit({ entity: "product", entityId: id, limit: 8 }) };
+}
+
+/** Admin order view: the order plus who placed it, their value to the store and who touched it. */
+export function getAdminOrder(id: string) {
+  const db = getDb();
+  const order = db.select().from(schema.orders).where(eq(schema.orders.id, id)).get();
+  if (!order) return null;
+  const items = db.select().from(schema.orderItems).where(eq(schema.orderItems.orderId, id)).all();
+  const events = db
+    .select({ event: schema.orderEvents, actor: schema.users.name, actorRole: schema.users.role })
+    .from(schema.orderEvents)
+    .leftJoin(schema.users, eq(schema.users.id, schema.orderEvents.actorId))
+    .where(eq(schema.orderEvents.orderId, id))
+    .orderBy(schema.orderEvents.createdAt, sql`"order_events".rowid`)
+    .all();
+  const customer = order.userId ? (listCustomers("", order.userId)[0] ?? null) : null;
+  return { order, items, events, customer, audit: listAudit({ entity: "order", entityId: order.number, limit: 12 }) };
+}
+
+export function listCustomerOrders(userId: string, limit = 5) {
+  return getDb()
+    .select({
+      id: schema.orders.id,
+      number: schema.orders.number,
+      status: schema.orders.status,
+      total: schema.orders.total,
+      refunded: schema.orders.refundedAmount,
+      returnStatus: schema.orders.returnStatus,
+      createdAt: schema.orders.createdAt,
+      items: sql<number>`(select coalesce(sum(oi.quantity), 0) from order_items oi where oi.order_id = "orders"."id")`,
+    })
+    .from(schema.orders)
+    .where(eq(schema.orders.userId, userId))
+    .orderBy(desc(schema.orders.createdAt))
     .limit(limit)
     .all();
 }

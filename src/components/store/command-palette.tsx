@@ -20,12 +20,21 @@ export const itemClass =
   "flex min-h-tap cursor-pointer items-center justify-between gap-3 rounded-md px-3 text-sm text-muted data-[selected=true]:bg-white/10 data-[selected=true]:text-fg";
 
 /** Ctrl/⌘+K launcher. Static destinations + live product matches from the server. */
-export function CommandPalette({ items, extraSearch }: { items: PaletteItem[]; extraSearch?: (q: string) => Promise<PaletteItem[]> }) {
+export function CommandPalette({
+  items,
+  extraSearch,
+  placeholder = "Jump to a product, category, order…",
+}: {
+  items: PaletteItem[];
+  extraSearch?: (q: string) => Promise<PaletteItem[]>;
+  placeholder?: string;
+}) {
   const open = useCart((s) => s.panel === "command");
   const setPanel = useCart((s) => s.setPanel);
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [live, setLive] = useState<PaletteItem[]>([]);
+  const [found, setFound] = useState<{ q: string; items: PaletteItem[] }>({ q: "", items: [] });
+  const live = q.trim().length >= 2 && found.q === q ? found.items : [];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -39,16 +48,18 @@ export function CommandPalette({ items, extraSearch }: { items: PaletteItem[]; e
   }, [setPanel]);
 
   useEffect(() => {
-    if (q.trim().length < 2) {
-      setLive([]);
-      return;
-    }
+    if (q.trim().length < 2) return;
     let alive = true;
     const t = setTimeout(async () => {
-      const results = extraSearch
-        ? await extraSearch(q)
-        : ((await searchAction(q)) as SearchSuggestion).products.map((p) => ({ id: p.id, label: p.name, hint: p.brand, href: `/products/${p.slug}`, group: "Products" }));
-      if (alive) setLive(results);
+      try {
+        const results = extraSearch
+          ? await extraSearch(q)
+          : ((await searchAction(q)) as SearchSuggestion).products.map((p) => ({ id: p.id, label: p.name, hint: p.brand, href: `/products/${p.slug}`, group: "Products" }));
+        if (alive) setFound({ q, items: results });
+      } catch {
+        // Live matches are a convenience; static destinations still work if the lookup fails.
+        if (alive) setFound({ q, items: [] });
+      }
     }, 150);
     return () => {
       alive = false;
@@ -76,7 +87,7 @@ export function CommandPalette({ items, extraSearch }: { items: PaletteItem[]; e
             <Command.Input
               value={q}
               onValueChange={setQ}
-              placeholder="Jump to a product, category, order…"
+              placeholder={placeholder}
               className="min-h-[3.5rem] w-full border-b border-line bg-transparent px-5 text-base outline-none placeholder:text-subtle"
             />
             <Command.List className="max-h-[min(60dvh,26rem)] overflow-y-auto p-2">

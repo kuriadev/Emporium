@@ -41,7 +41,18 @@ export const Field = forwardRef<HTMLInputElement & HTMLTextAreaElement & HTMLSel
   const labelControls = useAnimationControls();
   const [focused, setFocused] = useState(false);
   const [length, setLength] = useState(() => String(rest.value ?? rest.defaultValue ?? "").length);
+  // Only animate the counter after real typing, so server HTML and the first client render match.
+  const [typed, setTyped] = useState(false);
   const prevError = useRef<string | undefined>(undefined);
+  const inner = useRef<HTMLInputElement & HTMLTextAreaElement & HTMLSelectElement>(null);
+
+  // Registered (uncontrolled) inputs never pass `value`, and form resets don't fire change events,
+  // so the character counter re-reads the DOM value after each render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs after every render to catch resets
+  useEffect(() => {
+    const n = inner.current?.value.length;
+    if (showCounter && n !== undefined && n !== length) setLength(n);
+  });
 
   useEffect(() => {
     if (error && !reduce && (error !== prevError.current || shakeKey)) {
@@ -52,6 +63,7 @@ export const Field = forwardRef<HTMLInputElement & HTMLTextAreaElement & HTMLSel
 
   const onChange = (e: ChangeEvent<HTMLInputElement & HTMLTextAreaElement & HTMLSelectElement>) => {
     setLength(e.target.value.length);
+    setTyped(true);
     if (!reduce && !error) void labelControls.start({ scale: [1, 1.06, 1], transition: { duration: 0.18 } });
     (rest.onChange as ((e: ChangeEvent<unknown>) => void) | undefined)?.(e);
   };
@@ -59,7 +71,11 @@ export const Field = forwardRef<HTMLInputElement & HTMLTextAreaElement & HTMLSel
   const state = error ? "error" : valid ? "valid" : "idle";
   const common = {
     id: fieldId,
-    ref,
+    ref: (el: HTMLInputElement & HTMLTextAreaElement & HTMLSelectElement) => {
+      inner.current = el;
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+    },
     "aria-invalid": error ? true : undefined,
     "aria-describedby": msgId,
     maxLength,
@@ -106,7 +122,7 @@ export const Field = forwardRef<HTMLInputElement & HTMLTextAreaElement & HTMLSel
         {showCounter && maxLength ? (
           <motion.span
             key={length}
-            initial={reduce ? false : { scale: 1.25, opacity: 0.6 }}
+            initial={reduce || !typed ? false : { scale: 1.25, opacity: 0.6 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 700, damping: 20 }}
             className={cn("text-2xs tabular-nums", length > maxLength * 0.9 ? "text-warning" : "text-subtle")}

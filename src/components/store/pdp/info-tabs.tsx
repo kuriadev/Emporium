@@ -21,7 +21,7 @@ export function InfoTabs({ descriptionHtml, specs }: { descriptionHtml: string; 
   ];
   return (
     <Tabs.Root value={tab} onValueChange={setTab}>
-      <Tabs.List aria-label="Product information" className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]">
+      <Tabs.List aria-label="Product information" className="relative flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]">
         {tabs.map((t) => (
           <Tabs.Trigger key={t.id} value={t.id} className="relative min-h-tap shrink-0 px-4 text-sm text-muted transition hover:text-fg data-[state=active]:text-fg">
             {t.label}

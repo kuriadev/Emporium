@@ -16,15 +16,17 @@ export function useQuote() {
   const { promoCodes, shippingTier, giftWrap, setPromoCodes } = useCheckoutOptions();
   const signature = useCart((s) => s.cart?.lines.map((l) => `${l.variantId}:${l.quantity}`).join("|") ?? null);
   const [quote, setQuote] = useState<CartQuote | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Loading is derived: true until the response for the current inputs has landed.
+  const requestKey = JSON.stringify([signature, promoCodes, shippingTier, giftWrap]);
+  const [settledKey, setSettledKey] = useState<string | null>(null);
+  const loading = settledKey !== requestKey;
 
   useEffect(() => {
     if (signature === null) return;
     let alive = true;
-    setLoading(true);
     void quoteAction({ promoCodes, shippingTier, giftWrap }).then((res) => {
       if (!alive) return;
-      setLoading(false);
+      setSettledKey(requestKey);
       if (!res.ok) return;
       setQuote(res.data);
       // Drop codes that stopped applying (expired, min spend no longer met) so checkout never submits them.
@@ -34,7 +36,7 @@ export function useQuote() {
     return () => {
       alive = false;
     };
-  }, [signature, promoCodes, shippingTier, giftWrap, setPromoCodes]);
+  }, [signature, promoCodes, shippingTier, giftWrap, setPromoCodes, requestKey]);
 
   return { quote, loading };
 }
@@ -114,7 +116,7 @@ export function PromoCodeInput({ quote }: { quote: CartQuote | null }) {
         <div className="flex flex-wrap items-center gap-2 text-xs text-subtle">
           <span>Sandbox codes:</span>
           {DEMO_CODES.filter((c) => !promoCodes.includes(c)).map((c) => (
-            <button key={c} type="button" onClick={() => void apply(c)} className="min-h-[2rem] rounded-pill border border-dashed border-line-strong px-2.5 font-mono tracking-wider text-muted transition hover:border-fg hover:text-fg active:scale-95">
+            <button key={c} type="button" onClick={() => void apply(c)} className="min-h-[2rem] pointer-coarse:min-h-tap rounded-pill border border-dashed border-line-strong px-2.5 font-mono tracking-wider text-muted transition hover:border-fg hover:text-fg active:scale-95">
               {c}
             </button>
           ))}
@@ -126,7 +128,7 @@ export function PromoCodeInput({ quote }: { quote: CartQuote | null }) {
             const outcome = applied.find((a) => a.code === code);
             return (
               <motion.li key={code} layout initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: justApplied === code ? [1, 1.12, 1] : 1 }} exit={{ opacity: 0, scale: 0.6 }} transition={{ type: "spring", stiffness: 600, damping: 22 }}>
-                <span className="inline-flex min-h-[2.25rem] items-center gap-2 rounded-pill border border-price/50 bg-price/10 pl-3 text-sm text-price">
+                <span className="inline-flex min-h-[2.25rem] pointer-coarse:min-h-tap items-center gap-2 rounded-pill border border-price/50 bg-price/10 pl-3 text-sm text-price">
                   <Check className="size-3.5" aria-hidden />
                   <span className="font-mono tracking-wider">{code}</span>
                   {outcome && outcome.amount > 0 && (

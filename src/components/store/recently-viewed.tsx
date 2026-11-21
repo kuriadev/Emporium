@@ -15,17 +15,14 @@ export function TrackView({ productId }: { productId: string }) {
 
 export function RecentlyViewed({ excludeId, title = "Recently viewed" }: { excludeId?: string; title?: string }) {
   const ids = usePrefs((s) => s.recentlyViewed);
-  const [items, setItems] = useState<ProductCardData[]>([]);
   const key = ids.filter((id) => id !== excludeId).join(",");
+  const [loaded, setLoaded] = useState<{ key: string; items: ProductCardData[] }>({ key: "", items: [] });
+  const items = key && loaded.key === key ? loaded.items : [];
 
   useEffect(() => {
-    const list = key ? key.split(",") : [];
-    if (!list.length) {
-      setItems([]);
-      return;
-    }
+    if (!key) return;
     let alive = true;
-    void productsByIdsAction(list).then((r) => alive && setItems(r));
+    void productsByIdsAction(key.split(",")).then((r) => alive && setLoaded({ key, items: r }));
     return () => {
       alive = false;
     };

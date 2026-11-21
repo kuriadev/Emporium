@@ -80,7 +80,7 @@ export default async function AccountPage() {
       </dl>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[12rem_minmax(0,1fr)]">
-        <nav aria-label="Account sections" className="-mx-gutter overflow-x-auto px-gutter lg:mx-0 lg:px-0">
+        <nav aria-label="Account sections" className="relative -mx-gutter overflow-x-auto px-gutter lg:mx-0 lg:px-0">
           <ul className="flex gap-2 lg:sticky lg:top-24 lg:flex-col">
             {SECTIONS.map((s) => (
               <li key={s.id}>

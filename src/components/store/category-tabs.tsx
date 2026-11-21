@@ -32,7 +32,7 @@ export function CategoryTabs({ products, tabs }: { products: ProductCardData[]; 
 
   return (
     <div className="space-y-6">
-      <div role="tablist" aria-label="Filter by category" className="-mx-gutter flex gap-2 overflow-x-auto px-gutter pb-1 [scrollbar-width:none]">
+      <div role="tablist" aria-label="Filter by category" className="relative -mx-gutter flex gap-2 overflow-x-auto px-gutter pb-1 [scrollbar-width:none]">
         {tabs.map((t, i) => {
           const on = t.key === active;
           const count = t.key === "all" ? products.length : products.filter((p) => p.category === t.key).length;

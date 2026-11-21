@@ -38,3 +38,22 @@ export function pesosToCentavos(pesos: number): number {
 export function formatDate(date: Date | number, opts: Intl.DateTimeFormatOptions = { dateStyle: "medium" }, locale = "en-PH"): string {
   return new Intl.DateTimeFormat(locale, { timeZone: "Asia/Manila", ...opts }).format(date);
 }
+
+const rtf = new Intl.RelativeTimeFormat("en-PH", { numeric: "auto" });
+const STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 365 * 86_400_000],
+  ["month", 30 * 86_400_000],
+  ["week", 7 * 86_400_000],
+  ["day", 86_400_000],
+  ["hour", 3_600_000],
+  ["minute", 60_000],
+];
+
+/** "3 days ago", "yesterday", "in 2 weeks". Falls back to "just now" under a minute. */
+export function formatRelative(date: Date | number, now: number = Date.now()): string {
+  const diff = (typeof date === "number" ? date : date.getTime()) - now;
+  for (const [unit, ms] of STEPS) {
+    if (Math.abs(diff) >= ms) return rtf.format(Math.round(diff / ms), unit);
+  }
+  return "just now";
+}

@@ -203,7 +203,7 @@ export function getOrderForViewer(orderId: string, viewer: SessionUser) {
   if (!order) return null;
   if (viewer.role !== "admin" && order.userId !== viewer.id) return null;
   const items = db.select().from(schema.orderItems).where(eq(schema.orderItems.orderId, orderId)).all();
-  const events = db.select().from(schema.orderEvents).where(eq(schema.orderEvents.orderId, orderId)).orderBy(schema.orderEvents.createdAt).all();
+  const events = db.select().from(schema.orderEvents).where(eq(schema.orderEvents.orderId, orderId)).orderBy(schema.orderEvents.createdAt, sql`rowid`).all();
   return { order, items, events };
 }
 
@@ -236,6 +236,19 @@ export function requestReturn(user: SessionUser, orderId: string, reason: string
   db.transaction((tx) => {
     tx.update(schema.orders).set({ returnStatus: "requested", returnReason: reason, updatedAt: order.updatedAt }).where(eq(schema.orders.id, orderId)).run();
     tx.insert(schema.orderEvents).values({ id: randomUUID(), orderId, status: "return_requested", note: reason, actorId: user.id }).run();
+  });
+}
+
+/** Staff decision on a customer return request that won't be refunded (reason is kept on the order and in the audit log). */
+export function rejectReturn(actor: { id: string; email: string }, orderId: string, note: string): void {
+  const db = getDb();
+  db.transaction((tx) => {
+    const order = tx.select().from(schema.orders).where(eq(schema.orders.id, orderId)).get();
+    if (!order) throw new OrderError("Order not found.");
+    if (order.returnStatus !== "requested") throw new OrderError("There is no open return request on this order.");
+    tx.update(schema.orders).set({ returnStatus: "rejected" }).where(eq(schema.orders.id, orderId)).run();
+    tx.insert(schema.orderEvents).values({ id: randomUUID(), orderId, status: "return_rejected", note, actorId: actor.id }).run();
+    writeAudit({ actor, action: "order.return_rejected", entityType: "order", entityId: order.number, before: { returnStatus: "requested" }, after: { returnStatus: "rejected" }, reason: note }, tx);
   });
 }
 

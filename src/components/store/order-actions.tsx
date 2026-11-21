@@ -61,7 +61,7 @@ export function OrderActions({ orderId, canCancel, canReturn }: { orderId: strin
         <div className="mt-6 space-y-4">
           <div className="flex flex-wrap gap-2">
             {(mode === "cancel" ? CANCEL_REASONS : RETURN_REASONS).map((r) => (
-              <button key={r} type="button" onClick={() => setReason(r)} className={`min-h-[2.25rem] rounded-pill border px-3 text-left text-xs transition ${reason === r ? "border-accent text-fg" : "border-line text-muted hover:text-fg"}`}>
+              <button key={r} type="button" onClick={() => setReason(r)} className={`min-h-[2.25rem] pointer-coarse:min-h-tap rounded-pill border px-3 text-left text-xs transition ${reason === r ? "border-accent text-fg" : "border-line text-muted hover:text-fg"}`}>
                 {r.length > 40 ? `${r.slice(0, 38)}…` : r}
               </button>
             ))}

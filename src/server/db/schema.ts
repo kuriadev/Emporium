@@ -2,10 +2,18 @@ import { sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const id = () => text("id").primaryKey();
+// The SQL default only has second precision; the JS default keeps millisecond ordering for
+// audit trails and order timelines written in quick succession.
 const createdAt = () =>
-  integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`);
+  integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`)
+    .$defaultFn(() => new Date());
 const updatedAt = () =>
-  integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`);
+  integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`)
+    .$defaultFn(() => new Date());
 
 export const USER_ROLES = ["customer", "admin"] as const;
 export const ADMIN_ROLES = ["super_admin", "catalog_manager", "fulfillment_support"] as const;

@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   "orders:fulfill": ["super_admin", "fulfillment_support"],
   "orders:refund": ["super_admin"],
   "customers:view": ["super_admin", "fulfillment_support"],
+  "customers:notes": ["super_admin", "fulfillment_support"],
   "customers:manage": ["super_admin"],
   "promotions:write": ["super_admin", "catalog_manager"],
   "audit:view": ["super_admin"],

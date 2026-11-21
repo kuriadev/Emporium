@@ -157,7 +157,7 @@ export function FilterPanel({ facets, onDone }: { facets: Facets; onDone?: () =>
                   setMax(p.max?.toString() ?? "");
                   apply(on ? { min: null, max: null } : { min: p.min, max: p.max });
                 }}
-                className={cn("min-h-[2.25rem] rounded-pill border px-3 text-xs transition", on ? "border-fg bg-fg text-bg" : "border-line text-muted hover:border-line-strong hover:text-fg")}
+                className={cn("min-h-[2.25rem] pointer-coarse:min-h-tap rounded-pill border px-3 text-xs transition", on ? "border-fg bg-fg text-bg" : "border-line text-muted hover:border-line-strong hover:text-fg")}
               >
                 {p.label}
               </button>
@@ -219,7 +219,7 @@ export function FilterPanel({ facets, onDone }: { facets: Facets; onDone?: () =>
                 type="button"
                 aria-pressed={on}
                 onClick={() => apply({ minRating: on ? null : r })}
-                className={cn("inline-flex min-h-[2.25rem] items-center gap-1.5 rounded-pill border px-3 text-xs transition", on ? "border-fg bg-fg text-bg" : "border-line text-muted hover:border-line-strong hover:text-fg")}
+                className={cn("inline-flex min-h-[2.25rem] pointer-coarse:min-h-tap items-center gap-1.5 rounded-pill border px-3 text-xs transition", on ? "border-fg bg-fg text-bg" : "border-line text-muted hover:border-line-strong hover:text-fg")}
               >
                 <Star className={cn("size-3.5", on ? "fill-bg" : "fill-warning text-warning")} aria-hidden /> {r} and up
               </button>
@@ -298,14 +298,14 @@ export function ActiveFilters({ facets }: { facets: Facets }) {
       <AnimatePresence initial={false}>
         {chips.map((c) => (
           <motion.li key={c.key} layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ type: "spring", stiffness: 600, damping: 30 }}>
-            <button type="button" onClick={() => apply(c.clear)} className="inline-flex min-h-[2.25rem] items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 text-sm transition hover:border-danger hover:text-danger" aria-label={`Remove filter ${c.label}`}>
+            <button type="button" onClick={() => apply(c.clear)} className="inline-flex min-h-[2.25rem] pointer-coarse:min-h-tap items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 text-sm transition hover:border-danger hover:text-danger" aria-label={`Remove filter ${c.label}`}>
               {c.label} <X className="size-3.5" aria-hidden />
             </button>
           </motion.li>
         ))}
       </AnimatePresence>
       <li>
-        <button type="button" onClick={() => apply({ q: "", categories: [], colors: [], min: null, max: null, inStock: false, onSale: false, minRating: null })} className="min-h-[2.25rem] px-2 text-sm text-muted underline-offset-4 hover:text-fg hover:underline">
+        <button type="button" onClick={() => apply({ q: "", categories: [], colors: [], min: null, max: null, inStock: false, onSale: false, minRating: null })} className="min-h-[2.25rem] pointer-coarse:min-h-tap px-2 text-sm text-muted underline-offset-4 hover:text-fg hover:underline">
           Clear all
         </button>
       </li>

@@ -114,7 +114,7 @@ export function AddressManager({ addresses, name, phone }: { addresses: AddressV
           >
             <div className="flex flex-wrap gap-2">
               {ADDRESS_PRESETS.map((p) => (
-                <button key={p.label} type="button" onClick={() => Object.entries(p.value).forEach(([k, val]) => form.setValue(k as keyof AddrIn, val as never, { shouldDirty: true, shouldValidate: true }))} className="min-h-[2.25rem] rounded-pill border border-dashed border-line-strong px-3 text-xs text-muted hover:border-fg hover:text-fg active:scale-95">
+                <button key={p.label} type="button" onClick={() => Object.entries(p.value).forEach(([k, val]) => form.setValue(k as keyof AddrIn, val as never, { shouldDirty: true, shouldValidate: true }))} className="min-h-[2.25rem] pointer-coarse:min-h-tap rounded-pill border border-dashed border-line-strong px-3 text-xs text-muted hover:border-fg hover:text-fg active:scale-95">
                   {p.label}
                 </button>
               ))}

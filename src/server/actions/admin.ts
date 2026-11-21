@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/types";
-import { bulkProductActionSchema, customerAdminSchema, orderTransitionSchema, productInputSchema, promoInputSchema } from "@/lib/validations/admin";
+import { bulkProductActionSchema, customerAdminSchema, orderTransitionSchema, productInputSchema, promoInputSchema, returnDecisionSchema } from "@/lib/validations/admin";
 import { requireAdmin } from "../auth/guards";
 import { revokeAllSessions } from "../auth/session";
-import { adminCommandIndex, bulkProducts, deleteProduct, setProductStatus, updateCustomer, upsertProduct, upsertPromo } from "../services/admin";
-import { transitionOrder } from "../services/orders";
+import { adminCommandIndex, bulkProducts, deleteProduct, setProductStatus, setPromoActive, updateCustomer, upsertProduct, upsertPromo } from "../services/admin";
+import { rejectReturn, transitionOrder } from "../services/orders";
 import { ok, runAction, zodFailure } from "./run";
 
 const idSchema = z.string().min(1).max(64);
@@ -65,15 +65,29 @@ export async function transitionOrderAction(input: unknown): Promise<ActionResul
   });
 }
 
+export async function rejectReturnAction(input: unknown): Promise<ActionResult> {
+  return runAction("admin.order.return_reject", async () => {
+    const parsed = returnDecisionSchema.safeParse(input);
+    if (!parsed.success) return zodFailure(parsed.error);
+    const admin = await requireAdmin("orders:fulfill");
+    rejectReturn(admin, parsed.data.orderId, parsed.data.note);
+    revalidatePath("/admin/orders");
+    revalidatePath(`/orders/${parsed.data.orderId}`);
+    return ok(null, "Return request declined");
+  });
+}
+
 export async function updateCustomerAction(input: unknown): Promise<ActionResult> {
   return runAction("admin.customer.update", async () => {
     const parsed = customerAdminSchema.safeParse(input);
     if (!parsed.success) return zodFailure(parsed.error);
-    const admin = await requireAdmin(parsed.data.status ? "customers:manage" : "customers:view");
+    // Notes are a support task; suspending or reactivating an account is reserved for Super Admins.
+    const admin = await requireAdmin(parsed.data.status ? "customers:manage" : "customers:notes");
     const suspended = updateCustomer(admin, parsed.data.userId, parsed.data);
     if (suspended) revokeAllSessions(parsed.data.userId);
     revalidatePath("/admin/customers");
-    return ok(null, suspended ? "Customer suspended and signed out everywhere" : "Customer updated");
+    revalidatePath(`/admin/customers/${parsed.data.userId}`);
+    return ok(null, suspended ? "Customer suspended and signed out everywhere" : parsed.data.status === "active" ? "Customer reactivated" : "Notes saved");
   });
 }
 
@@ -85,6 +99,16 @@ export async function savePromoAction(input: unknown): Promise<ActionResult> {
     upsertPromo(admin, parsed.data);
     revalidatePath("/admin/promotions");
     return ok(null, parsed.data.id ? "Promotion updated" : "Promotion created");
+  });
+}
+
+export async function setPromoActiveAction(promoId: unknown, active: unknown): Promise<ActionResult<{ active: boolean }>> {
+  return runAction("admin.promo.toggle", async () => {
+    const admin = await requireAdmin("promotions:write");
+    const next = z.boolean().parse(active);
+    const code = setPromoActive(admin, idSchema.parse(promoId), next);
+    revalidatePath("/admin/promotions");
+    return ok({ active: next }, next ? `${code} is live again` : `${code} is paused`);
   });
 }
 

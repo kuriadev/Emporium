@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { toCsv } from "@/lib/security/csv";
 import { requireAdmin } from "@/server/auth/guards";
 import { getDb, schema } from "@/server/db";
@@ -43,6 +43,13 @@ export const GET = handler<{ params: Promise<{ kind: string }> }>("admin.export"
         o.promoCodes.join(" "),
         o.trackingNumber,
       ]),
+    );
+  } else if (kind === "audit") {
+    await requireAdmin("audit:view");
+    const rows = db.select().from(schema.auditLogs).orderBy(desc(schema.auditLogs.createdAt), sql`rowid desc`).limit(10_000).all();
+    csv = toCsv(
+      ["created_at", "actor_email", "action", "entity_type", "entity_id", "reason", "before", "after"],
+      rows.map((e) => [e.createdAt.toISOString(), e.actorEmail, e.action, e.entityType, e.entityId, e.reason, e.before ? JSON.stringify(e.before) : "", e.after ? JSON.stringify(e.after) : ""]),
     );
   } else {
     return jsonError(404, "Unknown export");

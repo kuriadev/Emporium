@@ -115,7 +115,7 @@ export function Lookbook({ title, eyebrow = "Lookbook", pieces }: { title: strin
                   >
                     {current.product.totalStock <= 0 ? "Sold out" : "Quick add"}
                   </Button>
-                  <Link href={`/products/${current.product.slug}`} className="inline-flex min-h-[2.25rem] items-center px-2 text-sm text-muted hover:text-fg">
+                  <Link href={`/products/${current.product.slug}`} className="inline-flex min-h-[2.25rem] pointer-coarse:min-h-tap items-center px-2 text-sm text-muted hover:text-fg">
                     Details
                   </Link>
                 </div>

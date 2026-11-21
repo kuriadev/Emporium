@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { CSRF_COOKIE, CSRF_PATTERN } from "./lib/security/csrf";
 import { SESSION_COOKIE, verifySessionToken } from "./server/auth/token";
 
 const CUSTOMER_ONLY = [/^\/account(\/|$)/, /^\/orders(\/|$)/, /^\/checkout(\/|$)/];
@@ -55,6 +56,12 @@ export async function proxy(request: NextRequest) {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  if (!CSRF_PATTERN.test(request.cookies.get(CSRF_COOKIE)?.value ?? "")) {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    // Readable by same-origin script on purpose (double-submit); Strict so it never rides cross-site requests.
+    response.cookies.set(CSRF_COOKIE, token, { httpOnly: false, sameSite: "strict", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 7 });
+  }
   return response;
 }
 

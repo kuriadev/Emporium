@@ -1,5 +1,6 @@
 "use client";
 
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { motion, useMotionValueEvent, useScroll } from "framer-motion";
 import { Command, Heart, Search, ShoppingBag, User } from "lucide-react";
 import Link from "next/link";
@@ -46,8 +47,7 @@ export function SiteHeader({ user }: { user: { name: string } | null }) {
   const setPanel = useCart((s) => s.setPanel);
   const currency = usePrefs((s) => s.currency);
   const setCurrency = usePrefs((s) => s.setCurrency);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
 
   useMotionValueEvent(scrollY, "change", (y) => {
     const prev = scrollY.getPrevious() ?? 0;
@@ -116,10 +116,10 @@ export function SiteHeader({ user }: { user: { name: string } | null }) {
         </div>
       </div>
       <nav aria-label="Categories" className="shell -mt-1 pb-2 lg:hidden">
-        <ul className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+        <ul className="relative flex gap-1 overflow-x-auto [scrollbar-width:none]">
           {NAV.map((item) => (
             <li key={item.href} className="shrink-0">
-              <Link href={item.href} className={cn("inline-flex min-h-[2.25rem] items-center rounded-pill border px-3 text-xs", item.category && activeCategory === item.category ? "border-fg text-fg" : "border-line text-muted")}>
+              <Link href={item.href} className={cn("inline-flex min-h-[2.25rem] pointer-coarse:min-h-tap items-center rounded-pill border px-3 text-xs", item.category && activeCategory === item.category ? "border-fg text-fg" : "border-line text-muted")}>
                 {item.label}
               </Link>
             </li>

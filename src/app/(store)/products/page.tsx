@@ -151,7 +151,7 @@ export default async function ProductsPage({ searchParams }: Props) {
                     <ul className="mt-3 flex flex-wrap justify-center gap-2">
                       {recovery.trending.map((t) => (
                         <li key={t}>
-                          <Link href={catalogHref({ q: t })} className="inline-flex min-h-[2.25rem] items-center rounded-pill border border-line px-3 text-sm text-muted hover:border-fg hover:text-fg">
+                          <Link href={catalogHref({ q: t })} className="inline-flex min-h-[2.25rem] pointer-coarse:min-h-tap items-center rounded-pill border border-line px-3 text-sm text-muted hover:border-fg hover:text-fg">
                             {t}
                           </Link>
                         </li>

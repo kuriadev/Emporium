@@ -16,7 +16,7 @@ export function ProductRail({ products, label }: { products: ProductCardData[]; 
   };
   return (
     <div className="relative">
-      <ul ref={ref} aria-label={label} className="-mx-gutter flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-gutter px-gutter pb-2 [scrollbar-width:none]">
+      <ul ref={ref} aria-label={label} className="relative -mx-gutter flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-gutter px-gutter pb-2 [scrollbar-width:none]">
         {products.map((p, i) => (
           <li key={p.id} className="w-[min(82vw,22rem)] shrink-0 snap-start">
             <ProductCard product={p} priority={i < 2} className="h-full" />

@@ -74,7 +74,7 @@ export function SupportForm({ defaults }: { defaults: { name: string; email: str
                 form.setValue("topic", p.topic, { shouldDirty: true });
                 form.setValue("message", p.message, { shouldDirty: true, shouldValidate: true });
               }}
-              className={cn("min-h-[2.25rem] rounded-pill border px-3 text-sm transition active:scale-95", topic === p.topic ? "border-accent text-fg" : "border-line text-muted hover:border-line-strong hover:text-fg")}
+              className={cn("min-h-[2.25rem] pointer-coarse:min-h-tap rounded-pill border px-3 text-sm transition active:scale-95", topic === p.topic ? "border-accent text-fg" : "border-line text-muted hover:border-line-strong hover:text-fg")}
             >
               {p.label}
             </button>

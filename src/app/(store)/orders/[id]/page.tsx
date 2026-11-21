@@ -1,4 +1,5 @@
 import { Check, Package, Truck } from "lucide-react";
+import { requestTime } from "@/lib/clock";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -44,7 +45,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const flowIndex = ORDER_FLOW.indexOf(status);
   const terminal = status === "cancelled" || status === "refunded";
   const canCancel = user.role === "customer" && CUSTOMER_CANCELLABLE.includes(status);
-  const withinWindow = Date.now() - order.updatedAt.getTime() <= RETURN_WINDOW_DAYS * 86_400_000;
+  const withinWindow = requestTime() - order.updatedAt.getTime() <= RETURN_WINDOW_DAYS * 86_400_000;
   const canReturn = user.role === "customer" && status === "delivered" && order.returnStatus === "none" && withinWindow;
   const a = order.shippingAddress;
 

@@ -322,7 +322,7 @@ export function CheckoutForm({ email, name, addresses }: { email: string; name: 
                   for (const [k, v] of Object.entries(p.apply)) form.setValue(`payment.${k}` as FieldPath<FormIn>, v as never, { shouldDirty: true, shouldValidate: k !== "method" });
                   setFormError(undefined);
                 }}
-                className="min-h-[2rem] rounded-pill border border-dashed border-line-strong px-2.5 text-muted transition hover:border-fg hover:text-fg active:scale-95"
+                className="min-h-[2rem] pointer-coarse:min-h-tap rounded-pill border border-dashed border-line-strong px-2.5 text-muted transition hover:border-fg hover:text-fg active:scale-95"
               >
                 {p.label}
               </button>

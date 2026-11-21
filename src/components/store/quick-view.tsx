@@ -19,13 +19,14 @@ export const useQuickView = create<{ slug: string | null; show: (slug: string) =
 export function QuickView() {
   const slug = useQuickView((s) => s.slug);
   const hide = useQuickView((s) => s.hide);
-  const [product, setProduct] = useState<ProductDetail | null>(null);
+  // Results are keyed by slug, so a stale product never flashes when a different one opens.
+  const [loaded, setLoaded] = useState<{ slug: string; product: ProductDetail | null } | null>(null);
+  const product = loaded && loaded.slug === slug ? loaded.product : null;
 
   useEffect(() => {
-    setProduct(null);
     if (!slug) return;
     let alive = true;
-    void quickViewAction(slug).then((p) => alive && setProduct(p));
+    void quickViewAction(slug).then((p) => alive && setLoaded({ slug, product: p }));
     return () => {
       alive = false;
     };

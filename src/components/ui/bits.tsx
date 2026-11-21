@@ -2,15 +2,14 @@
 
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { usePrefs } from "@/stores/prefs";
 
 export function Price({ value, compareAt, className, size = "md" }: { value: number; compareAt?: number | null; className?: string; size?: "sm" | "md" | "lg" }) {
   const currency = usePrefs((s) => s.currency);
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useHydrated();
   const cur = hydrated ? currency : "PHP";
   return (
     <span className={cn("inline-flex flex-wrap items-baseline gap-2", className)}>
@@ -27,8 +26,7 @@ export function Price({ value, compareAt, className, size = "md" }: { value: num
 
 export function Money({ value }: { value: number }) {
   const currency = usePrefs((s) => s.currency);
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useHydrated();
   return <span className="tabular-nums">{formatMoney(value, hydrated ? currency : "PHP")}</span>;
 }
 

@@ -94,6 +94,11 @@ export const orderTransitionSchema = z
     }
   });
 
+export const returnDecisionSchema = z.object({
+  orderId: z.string().min(1).max(64),
+  note: cleanText(3, 240, "Reason"),
+});
+
 export const promoInputSchema = z
   .object({
     id: z.string().max(64).optional(),
@@ -117,6 +122,7 @@ export const promoInputSchema = z
   .transform((p) => ({ ...p, value: p.type === "fixed" ? Math.round(p.value * 100) : p.type === "free_shipping" ? 0 : Math.round(p.value) }));
 
 export type PromoInput = z.input<typeof promoInputSchema>;
+export type PromoData = z.output<typeof promoInputSchema>;
 
 export const customerAdminSchema = z.object({
   userId: z.string().min(1).max(64),

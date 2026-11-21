@@ -1,5 +1,6 @@
 "use client";
 
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { AnimatePresence, motion } from "framer-motion";
 import { GitCompareArrows, X } from "lucide-react";
 import Image from "next/image";
@@ -17,8 +18,7 @@ export function CompareTray() {
   const ids = usePrefs((s) => s.compare);
   const clear = usePrefs((s) => s.clearCompare);
   const setPanel = useCart((s) => s.setPanel);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
   if (!mounted) return null;
   return (
     <AnimatePresence>
@@ -74,7 +74,7 @@ export function CompareSheet() {
 
   return (
     <Sheet open={open} onOpenChange={(o) => setPanel(o ? "compare" : null)} title="Compare products" side="bottom">
-      <div className="overflow-auto p-4 sm:p-6">
+      <div className="relative overflow-auto p-4 sm:p-6">
         <table className="w-full min-w-[40rem] border-separate border-spacing-0 text-sm">
           <caption className="sr-only">Side-by-side product comparison</caption>
           <thead>

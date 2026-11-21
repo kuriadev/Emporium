@@ -13,7 +13,6 @@ export function safeRedirect(raw: unknown, fallback = "/", opts: { allowAdmin?: 
     return fallback;
   }
 
-  // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f\\]/.test(decoded)) return fallback;
   if (!decoded.startsWith("/") || decoded.startsWith("//") || decoded.startsWith("/\t")) return fallback;
 

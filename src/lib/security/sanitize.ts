@@ -14,7 +14,6 @@ export function escapeHtml(value: string): string {
 /** Normalises user-entered plain text: NFKC, strips tags + control chars, collapses whitespace. */
 export function sanitizeText(value: string, { multiline = false }: { multiline?: boolean } = {}): string {
   let out = value.normalize("NFKC").replace(/<[^>]*>/g, "");
-  // eslint-disable-next-line no-control-regex
   out = out.replace(multiline ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g : /[\u0000-\u001f\u007f]/g, "");
   out = multiline ? out.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n") : out.replace(/\s+/g, " ");
   return out.trim();

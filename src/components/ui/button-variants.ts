@@ -14,7 +14,8 @@ export const buttonVariants = cva(
         danger: "border border-danger/60 bg-danger/10 text-danger hover:bg-danger/20",
       },
       size: {
-        sm: "min-h-[2.25rem] px-4 text-sm",
+        // Compact for mouse users; touch screens always get the full 2.75rem target.
+        sm: "min-h-[2.25rem] px-4 text-sm pointer-coarse:min-h-tap",
         md: "min-h-tap px-6 text-base",
         lg: "min-h-[3.5rem] px-8 text-lg",
         icon: "size-tap shrink-0 p-0",
