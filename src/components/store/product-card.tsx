@@ -43,7 +43,7 @@ export function ProductCard({ product, priority, className }: { product: Product
       className={cn("group relative flex flex-col rounded-xl bg-black p-3 ring-1 ring-line transition-shadow hover:shadow-[0_1.5rem_3rem_-1.5rem_oklch(1_0_0/0.2)] hover:ring-line-strong sm:p-5", className)}
     >
       <div className="relative aspect-square overflow-hidden rounded-lg bg-white sm:aspect-[4/3]">
-        <Link href={`/products/${product.slug}`} tabIndex={-1} aria-hidden>
+        <Link href={`/products/${product.slug}`} tabIndex={-1} aria-hidden className="absolute inset-0">
           {primary && (
             <Image src={primary.src} alt={primary.alt} fill priority={priority} sizes="(min-width: 80rem) 22rem, (min-width: 48rem) 33vw, 90vw" className={cn("object-cover transition-opacity duration-300", hover && secondary !== primary && "opacity-0")} />
           )}
