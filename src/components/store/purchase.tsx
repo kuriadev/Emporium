@@ -119,11 +119,11 @@ export function AddToBag({ variant, productName, onAdded, sticky }: { variant: V
   if (variant.stock <= 0) return <RestockForm variantId={variant.id} />;
 
   return (
-    <div className={cn("flex items-center gap-3", sticky && "w-full")}>
+    <div className="flex items-center gap-3">
       {!sticky && <QuantityStepper value={qty} max={variant.stock} label={productName} onChange={(n) => setQty(Math.max(1, n))} />}
       <Button
-        size="lg"
-        className="flex-1"
+        size={sticky ? "md" : "lg"}
+        className={sticky ? "px-5" : "flex-1"}
         loading={busy}
         success={surge}
         onClick={async () => {

@@ -1,21 +1,15 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { SORT_LABELS, type CatalogSort } from "@/lib/catalog-query";
 import { renderSafeMarkdown } from "@/lib/security/sanitize";
 import { didYouMean, normalizeQuery, scoreMatch } from "@/lib/search";
 import type { CategoryKey, ProductCardData, ProductDetail, SearchSuggestion, VariantView } from "@/lib/types";
 import { getDb, schema } from "../db";
 import { BUNDLES, CATEGORY_META } from "../db/catalog-data";
 
-export const SORTS = {
-  featured: "Featured",
-  "price-asc": "Price: Low–High",
-  "price-desc": "Price: High–Low",
-  newest: "Newest",
-  "best-selling": "Best Selling",
-  rating: "Top Rated",
-} as const;
-export type SortKey = keyof typeof SORTS;
+export const SORTS = SORT_LABELS;
+export type SortKey = CatalogSort;
 
 export interface CatalogFilters {
   q?: string;
@@ -24,6 +18,7 @@ export interface CatalogFilters {
   minPrice?: number;
   maxPrice?: number;
   inStock?: boolean;
+  onSale?: boolean;
   minRating?: number;
   sort?: SortKey;
 }
@@ -91,6 +86,7 @@ export function listProducts(filters: CatalogFilters = {}): ProductCardData[] {
   if (filters.minPrice !== undefined) items = items.filter((p) => p.price >= filters.minPrice!);
   if (filters.maxPrice !== undefined) items = items.filter((p) => p.price <= filters.maxPrice!);
   if (filters.inStock) items = items.filter((p) => p.totalStock > 0);
+  if (filters.onSale) items = items.filter((p) => p.compareAtPrice !== null && p.compareAtPrice > p.price);
   if (filters.minRating) items = items.filter((p) => p.ratingAvg >= filters.minRating!);
 
   const sorters: Record<SortKey, (a: ProductCardData, b: ProductCardData) => number> = {
@@ -223,4 +219,12 @@ export function suggest(rawQuery: string, { record = true }: { record?: boolean 
     trending,
     total: results.length,
   };
+}
+
+export function hasReviewed(userId: string, productId: string): boolean {
+  return !!getDb()
+    .select({ id: schema.reviews.id })
+    .from(schema.reviews)
+    .where(and(eq(schema.reviews.productId, productId), eq(schema.reviews.userId, userId)))
+    .get();
 }

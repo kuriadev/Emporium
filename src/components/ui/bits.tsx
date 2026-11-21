@@ -90,15 +90,15 @@ export function BotGuard({ register }: { register: (name: "company" | "startedAt
   );
 }
 
-export function SectionHeading({ eyebrow, title, accent, children, className }: { eyebrow?: string; title: string; accent?: string; children?: React.ReactNode; className?: string }) {
+export function SectionHeading({ id, eyebrow, title, accent, children, className, as: Tag = "h2" }: { id?: string; eyebrow?: string; title: string; accent?: string; children?: React.ReactNode; className?: string; as?: "h1" | "h2" }) {
   return (
     <div className={cn("flex flex-wrap items-end justify-between gap-4", className)}>
       <div>
         {eyebrow && <p className="mb-2 text-2xs uppercase tracking-[0.3em] text-subtle">{eyebrow}</p>}
-        <h2 className="text-2xl font-medium">
+        <Tag id={id} className="text-2xl font-medium">
           {title}
           {accent && <span className="ml-2 font-light text-muted">{accent}</span>}
-        </h2>
+        </Tag>
       </div>
       {children}
     </div>

@@ -22,7 +22,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { requireUser } from "../auth/guards";
 import { ensureOwnerKey, getCurrentUser, readOwnerKey } from "../auth/session";
-import { limiters } from "../security/limiters";
+import { limiters, promoAttempt } from "../security/limiters";
 import { clientIp } from "../security/request";
 import { getProductBySlug, getProductsByIds, suggest } from "../services/catalog";
 import { buildCartView, listWishlist, setCartQuantity, toggleWishlist } from "../services/cart";
@@ -77,7 +77,10 @@ export async function addBundleAction(variantIds: unknown): Promise<ActionResult
   return runAction("cart.bundle", async () => {
     const ids = z.array(z.string().min(1).max(64)).min(2).max(4).parse(variantIds);
     const owner = await ensureOwnerKey();
-    for (const id of ids) setCartQuantity(owner, id, 1, "add");
+    // All-or-nothing: if one item is out of stock, none of the bundle lands in the bag.
+    getDb().transaction(() => {
+      for (const id of ids) setCartQuantity(owner, id, 1, "add");
+    });
     return ok(await quote(), "Bundle added to bag");
   });
 }
@@ -88,7 +91,7 @@ export async function quoteAction(input: unknown): Promise<ActionResult<CartQuot
     if (!parsed.success) return zodFailure(parsed.error);
     if (parsed.data.promoCodes.length) {
       const user = await getCurrentUser();
-      const rl = limiters.promo.hit(user?.id ?? (await clientIp()));
+      const rl = promoAttempt(user?.id ?? `ip:${await clientIp()}`, parsed.data.promoCodes);
       if (!rl.ok) return fail(`Too many code attempts. Try again in ${rl.retryAfterSeconds}s.`, { retryAfter: rl.retryAfterSeconds });
     }
     return ok(await quote(parsed.data));
@@ -126,7 +129,9 @@ export async function toggleWishlistAction(productId: unknown, on: unknown): Pro
 export async function searchAction(query: unknown): Promise<SearchSuggestion> {
   const q = z.string().max(80).catch("").parse(query);
   const rl = limiters.search.hit(await clientIp());
-  return suggest(q, { record: rl.ok });
+  if (!rl.ok) return { products: [], categories: [], didYouMean: null, trending: [], total: 0 };
+  // Typeahead keystrokes are not recorded; the catalogue page records committed searches.
+  return suggest(q, { record: false });
 }
 
 export async function restockAlertAction(input: unknown): Promise<ActionResult> {
@@ -238,5 +243,10 @@ export async function quickViewAction(slug: unknown) {
 
 export async function compareAction(ids: unknown) {
   const parsed = z.array(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)).max(4).safeParse(ids);
+  return parsed.success ? getProductsByIds(parsed.data) : [];
+}
+
+export async function productsByIdsAction(ids: unknown) {
+  const parsed = z.array(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)).max(8).safeParse(ids);
   return parsed.success ? getProductsByIds(parsed.data) : [];
 }

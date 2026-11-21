@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { Money } from "@/components/ui/bits";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Sheet } from "@/components/ui/overlay";
 import { cn, pluralize } from "@/lib/utils";
 import { useCart } from "@/stores/cart";

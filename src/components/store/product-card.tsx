@@ -40,9 +40,9 @@ export function ProductCard({ product, priority, className }: { product: Product
       onHoverEnd={() => setHover(false)}
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      className={cn("group relative flex flex-col rounded-xl bg-black p-4 ring-1 ring-line transition-shadow hover:shadow-[0_1.5rem_3rem_-1.5rem_oklch(1_0_0/0.2)] hover:ring-line-strong sm:p-5", className)}
+      className={cn("group relative flex flex-col rounded-xl bg-black p-3 ring-1 ring-line transition-shadow hover:shadow-[0_1.5rem_3rem_-1.5rem_oklch(1_0_0/0.2)] hover:ring-line-strong sm:p-5", className)}
     >
-      <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-white">
+      <div className="relative aspect-square overflow-hidden rounded-lg bg-white sm:aspect-[4/3]">
         <Link href={`/products/${product.slug}`} tabIndex={-1} aria-hidden>
           {primary && (
             <Image src={primary.src} alt={primary.alt} fill priority={priority} sizes="(min-width: 80rem) 22rem, (min-width: 48rem) 33vw, 90vw" className={cn("object-cover transition-opacity duration-300", hover && secondary !== primary && "opacity-0")} />
@@ -69,36 +69,24 @@ export function ProductCard({ product, priority, className }: { product: Product
           >
             <GitCompareArrows className={cn("size-[1.1rem]", comparing && "text-accent")} />
           </CardIcon>
-          <CardIcon label={`Quick view ${product.name}`} onClick={() => openQuickView(product.slug)}>
+          <CardIcon label={`Quick view ${product.name}`} onClick={() => openQuickView(product.slug)} className="hidden sm:grid">
             <Eye className="size-[1.1rem]" />
           </CardIcon>
         </div>
       </div>
 
-      <div className="mt-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-lg leading-snug sm:text-xl">
-            <Link href={`/products/${product.slug}`} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
-              {product.name}
-            </Link>
-          </h3>
-          <p className="mt-1 text-2xs uppercase tracking-[0.2em] text-subtle">{product.brand}</p>
-        </div>
-        <motion.button
-          type="button"
-          onClick={quickAdd}
-          disabled={soldOut || busy}
-          whileTap={{ scale: 0.85 }}
-          aria-label={soldOut ? `${product.name} is sold out` : needsChoice ? `Choose options for ${product.name}` : `Add ${product.name} to bag`}
-          className="relative z-10 inline-flex min-h-tap shrink-0 items-center gap-1.5 overflow-hidden rounded-pill bg-white/10 px-3 text-xs text-muted transition hover:bg-white hover:text-bg disabled:opacity-40"
-        >
-          <Plus className={cn("size-4", busy && "animate-spin")} />
-          <span className="max-w-0 overflow-hidden transition-[max-width] duration-300 group-hover:max-w-[6rem] group-focus-within:max-w-[6rem]">{needsChoice ? "Options" : "Add to bag"}</span>
-        </motion.button>
+      <div className="mt-3 min-w-0 sm:mt-4">
+        <h3 className="line-clamp-2 text-base leading-snug sm:text-lg">
+          <Link href={`/products/${product.slug}`} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
+            {product.name}
+          </Link>
+        </h3>
+        <p className="mt-1 truncate text-2xs uppercase tracking-[0.2em] text-subtle">{product.brand}</p>
+        {product.ratingCount > 0 && <Stars className="mt-2" value={product.ratingAvg} count={product.ratingCount} />}
       </div>
 
       {product.swatches.length > 1 && (
-        <div className="relative z-10 mt-3 flex items-center gap-2" role="radiogroup" aria-label="Colour">
+        <div className="relative z-10 mt-2 flex flex-wrap items-center gap-x-1 sm:gap-x-2" role="radiogroup" aria-label="Colour">
           {product.swatches.map((s) => (
             <button
               key={s.color}
@@ -113,19 +101,29 @@ export function ProductCard({ product, priority, className }: { product: Product
               <span className={cn("size-5 rounded-full ring-1 ring-white/30 ring-offset-2 ring-offset-black transition", swatch === s.color && "ring-2 ring-fg")} style={{ background: s.hex }} />
             </button>
           ))}
-          <span className="text-xs text-subtle">{swatch}</span>
+          <span className="hidden text-xs text-subtle sm:inline">{swatch}</span>
         </div>
       )}
 
-      <div className="mt-auto flex items-end justify-between gap-3 pt-4">
-        <Price value={product.price} compareAt={product.compareAtPrice} />
-        {product.ratingCount > 0 && <Stars value={product.ratingAvg} count={product.ratingCount} />}
+      <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+        <Price value={product.price} compareAt={product.compareAtPrice} className="min-w-0" />
+        <motion.button
+          type="button"
+          onClick={quickAdd}
+          disabled={soldOut || busy}
+          whileTap={{ scale: 0.85 }}
+          aria-label={soldOut ? `${product.name} is sold out` : needsChoice ? `Choose options for ${product.name}` : `Add ${product.name} to bag`}
+          className="relative z-10 inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-pill bg-white/10 px-3 text-xs text-muted transition hover:bg-white hover:text-bg disabled:opacity-40"
+        >
+          <Plus className={cn("size-4", busy && "animate-spin")} />
+          <span className="max-w-0 overflow-hidden transition-[max-width] duration-300 [@media(hover:hover)]:group-hover:max-w-[6rem] [@media(hover:hover)]:group-focus-within:max-w-[6rem]">{needsChoice ? "Options" : "Add"}</span>
+        </motion.button>
       </div>
     </motion.article>
   );
 }
 
-function CardIcon({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: React.ReactNode }) {
+function CardIcon({ label, onClick, pressed, children, className }: { label: string; onClick: () => void; pressed?: boolean; children: React.ReactNode; className?: string }) {
   return (
     <motion.button
       type="button"
@@ -133,7 +131,7 @@ function CardIcon({ label, onClick, pressed, children }: { label: string; onClic
       aria-pressed={pressed}
       onClick={onClick}
       whileTap={{ scale: 0.8 }}
-      className="relative z-10 grid size-tap place-items-center rounded-full bg-black/55 text-white backdrop-blur-md transition hover:bg-black/80"
+      className={cn("relative z-10 grid size-tap place-items-center rounded-full bg-black/55 text-white backdrop-blur-md transition hover:bg-black/80", className)}
     >
       {children}
     </motion.button>
