@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { dataDir } from "@/server/data-dir";
 
 let cached: Uint8Array | null = null;
 
@@ -18,7 +19,7 @@ export function getSessionSecret(): Uint8Array {
   if (process.env.NODE_ENV === "production" && process.env.EMPORIUM_ALLOW_DEV_SECRET !== "1") {
     throw new Error("SESSION_SECRET must be set to at least 32 characters in production");
   }
-  const dir = join(process.cwd(), "data");
+  const dir = dataDir();
   const file = join(dir, ".session-secret");
   if (!existsSync(file)) {
     mkdirSync(dir, { recursive: true });

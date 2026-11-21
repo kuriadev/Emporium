@@ -30,7 +30,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       whileHover={{ y: -1 }}
       whileTap={{ scale: 0.94, y: 1 }}
       animate={success ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-      transition={{ type: "spring", stiffness: 600, damping: 22, mass: 0.6 }}
+      transition={success ? { duration: 0.35, ease: "easeOut" } : { type: "spring", stiffness: 600, damping: 22, mass: 0.6 }}
       {...props}
     >
       <AnimatePresence mode="popLayout" initial={false}>

@@ -6,13 +6,14 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import * as schema from "./schema";
 import { seedDatabase } from "./seed";
+import { dataDir } from "@/server/data-dir";
 
 export type DB = BetterSQLite3Database<typeof schema>;
 
 const globalForDb = globalThis as unknown as { __emporiumDb?: DB };
 
 function createDb(): DB {
-  const file = process.env.DATABASE_PATH ?? join(process.cwd(), "data", "emporium.db");
+  const file = process.env.DATABASE_PATH ?? join(dataDir(), "emporium.db");
   mkdirSync(dirname(file), { recursive: true });
   const sqlite = new Database(file);
   sqlite.pragma("journal_mode = WAL");
