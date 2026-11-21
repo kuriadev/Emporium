@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["better-sqlite3"],
+  // Migrations are read from disk at runtime; make sure serverless bundles include them.
+  outputFileTracingIncludes: { "/**": ["./drizzle/**"] },
   images: {
     formats: ["image/avif", "image/webp"],
     deviceSizes: [360, 480, 640, 768, 1024, 1280, 1600, 1920],

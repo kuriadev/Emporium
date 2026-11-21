@@ -6,6 +6,7 @@ import { requireAdmin } from "@/server/auth/guards";
 import { validateImageUpload } from "@/server/security/image";
 import { handler, jsonError } from "@/server/security/route";
 import { writeAudit } from "@/server/services/audit";
+import { dataDir } from "@/server/data-dir";
 
 export const POST = handler(
   "admin.upload",
@@ -20,7 +21,7 @@ export const POST = handler(
     if (!check.ok) return jsonError(415, check.error);
 
     const name = `${randomUUID()}.${check.kind === "jpeg" ? "jpg" : check.kind}`;
-    const dir = join(process.cwd(), "data", "uploads");
+    const dir = join(dataDir(), "uploads");
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, name), bytes, { mode: 0o644 });
     writeAudit({ actor: admin, action: "media.upload", entityType: "media", entityId: name, after: { width: check.width, height: check.height, bytes: bytes.byteLength } });
